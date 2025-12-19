@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
+        base: '/X-mastarfield/',   // 👈 就加在這一行（非常重要）
       server: {
         port: 3000,
         host: '0.0.0.0',
