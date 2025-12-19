@@ -511,7 +511,7 @@ const App: React.FC = () => {
 
                   <div className="flex flex-col gap-3">
                       <div className="flex items-center justify-between px-1">
-                           <span className="font-cinzel text-[#FFD700]/80 tracking-widest font-bold text-[8px] md:text-[10px] lg:text-xs uppercase">Open Webcam</span>
+                           <span className="font-cinzel text-[#FFD700]/80 tracking-widest font-bold text-[8px] md:text-[8px] lg:text-xs uppercase">Open Webcam</span>
                            <div 
                              className={`relative w-9 h-5 md:w-11 md:h-6 lg:w-14 lg:h-7 rounded-full border border-[#FFD700]/60 cursor-pointer transition-all duration-300 ${webcamEnabled ? 'bg-[#FFD700]/20 border-[#FFD700]' : 'bg-transparent'}`}
                              onClick={() => setWebcamEnabled(!webcamEnabled)}
