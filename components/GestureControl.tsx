@@ -179,7 +179,7 @@ export const GestureControl: React.FC<GestureControlProps> = ({ onGestureUpdate,
   if (!enabled) return null;
 
   return (
-    <div className="w-full transition-opacity duration-300 select-none rounded-sm overflow-hidden bg-black/40 border border-[#FFD700]/20 mt-2">
+    <div className="w-full transition-opacity duration-300 select-none rounded-sm overflow-hidden bg-black/40 border border-[#FFD700]/20">
        <div className="relative w-full aspect-video bg-black/80">
           <video ref={videoRef} autoPlay playsInline muted className="absolute w-full h-full object-cover transform scale-x-[-1]" />
           <canvas ref={canvasRef} className="absolute w-full h-full object-cover transform scale-x-[-1]" />
