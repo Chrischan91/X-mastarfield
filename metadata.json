@@ -1,0 +1,7 @@
+{
+  "name": "X'mastarfield",
+  "description": "A high-fidelity 3D Christmas experience featuring a Trump-style aesthetic, gesture control, and particle morphing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
