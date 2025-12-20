@@ -180,19 +180,19 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
         <div className="grid grid-cols-2 gap-x-3 md:gap-x-8 gap-y-1 md:gap-y-2.5">
            <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.TREE ? 'brightness-125' : 'opacity-50'}`}>
               <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">✊</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Fist: Tree</span>
+              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Fist: Tree Assembled</span>
            </div>
            <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.SCATTER ? 'brightness-125' : 'opacity-50'}`}>
               <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">✋</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Open: Explode</span>
+              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Open: Tree Exploded</span>
            </div>
            <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.FOCUS ? 'brightness-125' : 'opacity-50'}`}>
               <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">🤏</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Pinch: Picture</span>
+              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Pinch: Picture Focused</span>
            </div>
            <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.NEW_YEAR ? 'brightness-125' : 'opacity-50'}`}>
               <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">✌</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Yeah: Merry X'mas</span>
+              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Yeah: Merry Christmas</span>
            </div>
         </div>
         
