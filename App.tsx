@@ -458,7 +458,7 @@ const App: React.FC = () => {
                        <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={!!editingId} />
                   </label>
 
-                  <div className="border border-[#FFD700]/20 bg-black/20 p-2 md:p-3 lg:p-5 relative flex flex-col gap-3 rounded-sm">
+                  <div className="border border-[#FFD700]/20 bg-black/20 p-2 md:p-3 lg:p-4 relative flex flex-col gap-1.5 rounded-sm">
                       <div className="flex justify-between items-center border-b border-[#FFD700]/10 pb-2">
                           <span className="text-[#FFD700]/70 font-cinzel text-[7px] md:text-[9px] lg:text-[11px] tracking-[0.2em] font-bold uppercase">BGM Player</span>
                           <div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${isPlaying ? 'bg-emerald-400 shadow-[0_0_5px_#34d399] animate-pulse' : 'bg-red-900'}`}></div>
@@ -509,14 +509,15 @@ const App: React.FC = () => {
                       </label>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between px-1">
-                           <span className="font-cinzel text-[#FFD700]/80 tracking-widest font-bold text-[8px] md:text-[8px] lg:text-xs uppercase">Open Webcam</span>
+                           <span className="font-cinzel text-[#FFD700]/80 tracking-widest font-bold text-[8px] md:text-[10px] lg:text-xs uppercase">Open Webcam</span>
                            <div 
-                             className={`relative w-9 h-5 md:w-11 md:h-6 lg:w-14 lg:h-7 rounded-full border border-[#FFD700]/60 cursor-pointer transition-all duration-300 ${webcamEnabled ? 'bg-[#FFD700]/20 border-[#FFD700]' : 'bg-transparent'}`}
+                             className={`relative w-7 h-4 md:w-9 md:h-5 lg:w-11 lg:h-6 rounded-full border border-[#FFD700]/60 cursor-pointer transition-all duration-300 ${webcamEnabled ? 'bg-[#FFD700]/20 border-[#FFD700]' : 'bg-transparent'}`}
                              onClick={() => setWebcamEnabled(!webcamEnabled)}
                            >
-                              <div className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 md:top-0.5 md:left-0.5 md:w-4.5 md:h-4.5 lg:top-1 lg:left-1 lg:w-4.5 lg:h-4.5 rounded-full bg-[#FFD700] transition-transform duration-300 ${webcamEnabled ? 'translate-x-4 md:translate-x-5 lg:translate-x-7 shadow-[0_0_10px_#FFD700]' : 'translate-x-0'}`}></div>
+                              <div className={`absolute left-0.5 top-1/2 -translate-y-1/2 rounded-full bg-[#FFD700] transition-transform duration-300 w-3 h-3 md:w-4 md:h-4 lg:w-4.5 lg:h-4.5
+      ${webcamEnabled ? 'translate-x-3 md:translate-x-4 lg:translate-x-5 shadow-[0_0_10px_#FFD700]' : 'translate-x-0'}`}></div>
                            </div>
                       </div>
                       
