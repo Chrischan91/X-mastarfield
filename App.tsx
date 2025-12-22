@@ -483,14 +483,14 @@ const App: React.FC = () => {
                   <div className="flex flex-col gap-2 md:gap-3">
                       <div className="flex items-center gap-3 md:gap-4 px-1">
                            <div 
-                             className="relative w-10 h-5 md:w-14 md:h-7 rounded-full border-[2px] border-[#FFD700] cursor-pointer transition-all duration-300 bg-black overflow-hidden"
+                             className={`relative w-7 h-4 md:w-9 md:h-5 lg:w-11 lg:h-6 rounded-full border border-[#FFD700]/60 cursor-pointer transition-all duration-300 ${webcamEnabled ? 'bg-[#FFD700]/20 border-[#FFD700]' : 'bg-transparent'}`}
                              onClick={() => setWebcamEnabled(!webcamEnabled)}
                            >
                               <div 
-                                className={`absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-5 md:h-5 rounded-full bg-[#FFD700] transition-all duration-300 ${
-                                  webcamEnabled ? 'left-[calc(100%-14px-2px)] md:left-[calc(100%-20px-2px)]' : 'left-[2px]'
-                                }`}
-                              ></div>
+                                 className={`absolute left-0.5 top-1/2 -translate-y-1/2 rounded-full bg-[#FFD700] transition-transform duration-300 w-3 h-3 md:w-4 md:h-4 lg:w-4.5 lg:h-4.5 
+                                 ${webcamEnabled ? 'translate-x-3 md:translate-x-4 lg:translate-x-5 shadow-[0_0_10px_#FFD700]' : 'translate-x-0'}`}
+                              />
+    
                            </div>
                            <span className="font-cinzel font-bold text-[#FFD700] text-[7px] md:text-[8px] tracking-[0.2em] whitespace-nowrap uppercase">OPEN WEBCAM</span>
                       </div>
