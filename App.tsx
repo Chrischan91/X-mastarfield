@@ -36,7 +36,7 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   
   const [playlist, setPlaylist] = useState<Track[]>([
-    { id: 'default', name: "Pastlives (Dropbox)", url: BACKGROUND_MUSIC_SRC }
+    { id: 'default', name: "Pastlives", url: BACKGROUND_MUSIC_SRC }
   ]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
