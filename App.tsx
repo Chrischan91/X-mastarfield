@@ -488,7 +488,7 @@ const App: React.FC = () => {
                            >
                               <div 
                                  className={`absolute left-0.5 top-1/2 -translate-y-1/2 rounded-full bg-[#FFD700] transition-transform duration-300 w-3 h-3 md:w-4 md:h-4 lg:w-4.5 lg:h-4.5 
-                                 ${webcamEnabled ? 'translate-x-3 md:translate-x-4 lg:translate-x-5 shadow-[0_0_10px_#FFD700]' : 'translate-x-0'}`}
+                                 ${webcamEnabled ? 'translate-x-2 md:translate-x-4 lg:translate-x-5 shadow-[0_0_10px_#FFD700]' : 'translate-x-0'}`}
                               />
     
                            </div>
