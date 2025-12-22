@@ -492,7 +492,7 @@ const App: React.FC = () => {
                               />
     
                            </div>
-                           <span className="font-cinzel font-bold text-[#FFD700] text-[7px] md:text-[8px] tracking-[0.2em] whitespace-nowrap uppercase">OPEN WEBCAM</span>
+                           <span className="font-cinzel font-bold text-[#FFD700] text-[8px] md:text-[10px] lg:text-sm whitespace-nowrap uppercase">OPEN WEBCAM</span>
                       </div>
                       {webcamEnabled && (<GestureControl onGestureUpdate={handleGestureUpdate} enabled={webcamEnabled} />)}
                   </div>
