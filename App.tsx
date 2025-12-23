@@ -6,7 +6,7 @@ import { GestureInfoPanel } from './components/GestureInfoPanel';
 import { AppMode, GestureState, UploadedImage } from './types';
 const MemoExperience = React.memo(Experience);
 
-const BACKGROUND_MUSIC_SRC = "https://www.dropbox.com/scl/fi/x9um45qqfb00dbf70vttr/Pastlives.mp3?rlkey=55utc8ph38imksvxqqn9vrdtx&st=qivvio3u&raw=1";
+const BACKGROUND_MUSIC_SRC = "https://www.dropbox.com/scl/fi/jhv6l2q03ycvbdporwvp6/Joy-to-the-world.mp3?rlkey=6xdb3mjsx0pmowj69mqz0o7p2&st=9khilajv&raw=1";
 
 interface Track {
   id: string;
@@ -36,7 +36,7 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   
   const [playlist, setPlaylist] = useState<Track[]>([
-    { id: 'default', name: "Pastlives", url: BACKGROUND_MUSIC_SRC }
+    { id: 'default', name: "Joy to the world", url: BACKGROUND_MUSIC_SRC }
   ]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
 
