@@ -8,7 +8,7 @@ import { AppMode, GestureState, UploadedImage } from './types';
 const MemoExperience = React.memo(Experience);
 
 // Optimized Dropbox link format with required keys for direct streaming
-const BACKGROUND_MUSIC_SRC = "https://www.dropbox.com/scl/fi/jhv6l2q03ycvbdporwvp6/Joy-to-the-world.mp3?rlkey=6xdb3mjsx0pmowj69mqz0o7p2&st=9khilajv&raw=1";
+const BACKGROUND_MUSIC_SRC = "https://www.dropbox.com/scl/fi/nzd5cwtvf94d7kqosvrwj/Christmas-List.mp3?rlkey=bx2rtidg1m0ay17vb8atois5r&st=gfxrotba&raw=1";
 
 interface Track {
   id: string;
