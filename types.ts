@@ -32,7 +32,12 @@ export interface GestureState {
   gesture: 'FIST' | 'OPEN_PALM' | 'PINCH' | 'YEAH' | 'NONE';
 }
 
-// Augment global JSX namespace to include Three.js elements for general compatibility
+/**
+ * Fix: Properly augment IntrinsicElements to recognize Three.js tags.
+ * We augment the global JSX namespace to ensure coverage across different 
+ * TypeScript configurations and React versions.
+ * This resolves errors where tags like <group>, <mesh>, <points>, etc. are not recognized.
+ */
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -54,6 +59,7 @@ declare global {
       sphereGeometry: any;
       tubeGeometry: any;
       color: any;
+      primitive: any;
       [elemName: string]: any;
     }
   }
