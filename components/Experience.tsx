@@ -72,6 +72,7 @@ const SceneGroup: React.FC<{ gestureState: GestureState; mode: AppMode; children
           groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, 0, lerpFactor);
           groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, 0, lerpFactor);
         } else {
+          // Both SCATTER and FOCUS modes use this dynamic rotation
           let targetRotY = state.mouse.x * 0.3;
           let targetRotX = state.mouse.y * 0.1;
 
@@ -107,7 +108,9 @@ export const Experience: React.FC<ExperienceProps> = ({ mode, gestureState, imag
   const isFocusMode = mode === AppMode.FOCUS;
   const isEditing = !!editingId;
   
-  const shouldFreezeScene = isEditing || isFocusMode;
+  // Scene rotation is enabled in FOCUS mode to allow particles to rotate in the background.
+  // We only freeze the scene during literal editing/naming to ensure UI stability.
+  const shouldFreezeScene = isEditing;
   const enableControls = !isEditing && !isFocusMode;
 
   return (
