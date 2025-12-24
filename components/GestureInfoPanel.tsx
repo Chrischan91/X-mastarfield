@@ -5,13 +5,23 @@ import { AppMode, GestureState } from '../types';
 interface GestureInfoPanelProps {
   mode: AppMode;
   gestureState: GestureState;
+  onManualModeChange?: (newMode: AppMode) => void;
+  isWebcamOff?: boolean;
+  isVisible?: boolean;
 }
 
 const STORAGE_KEY = 'gesture-guide-pos-v1';
 
-export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestureState }) => {
+export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ 
+  mode, 
+  gestureState, 
+  onManualModeChange, 
+  isWebcamOff,
+  isVisible = true
+}) => {
   const [position, setPosition] = useState({ x: -2000, y: -2000 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const dragStartOffset = useRef({ x: 0, y: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
   const latestPos = useRef({ x: 0, y: 0 });
@@ -19,9 +29,8 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
   const clampToViewport = useCallback((x: number, y: number) => {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    // Get actual dimensions or fallback to estimated defaults based on Tailwind classes
-    const panelW = panelRef.current?.offsetWidth || (w >= 1024 ? 460 : w >= 768 ? 420 : 260);
-    const panelH = panelRef.current?.offsetHeight || (w >= 768 ? 120 : 85);
+    const panelW = panelRef.current?.offsetWidth || (w >= 1024 ? 350 : w >= 768 ? 320 : 220);
+    const panelH = panelRef.current?.offsetHeight || (w >= 768 ? 100 : 75);
     
     return {
       x: Math.max(10, Math.min(w - panelW - 10, x)),
@@ -32,17 +41,17 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
   const setInitialPosition = useCallback(() => {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const isMob = w < 768;
+    setIsMobile(isMob);
+
+    if (isMob) {
+      // Fixed at bottom center for mobile
+      return;
+    }
     
-    // Determine the expected width for centering before the ref is fully rendered/measured
-    let expectedW = 260;
-    if (w >= 1024) expectedW = 460;
-    else if (w >= 768) expectedW = 420;
-
-    // Determine the expected height - reduced for mobile
-    const expectedH = w >= 768 ? 120 : 85;
-
-    // Safe bottom spacing - increased for mobile to clear browser UI elements
-    const bottomMargin = w < 768 ? 40 : 60;
+    let expectedW = w >= 1024 ? 350 : 320;
+    const expectedH = 100;
+    const bottomMargin = 40;
 
     const initial = {
       x: (w / 2) - (expectedW / 2),
@@ -54,45 +63,19 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
     latestPos.current = clamped;
   }, [clampToViewport]);
 
-  // Handle Review Mode centering on mobile
   useEffect(() => {
-    if (window.innerWidth < 768 && mode === AppMode.FOCUS) {
-      // Automatically snap to bottom center when reviewing a photo on mobile
-      setInitialPosition();
-    }
-  }, [mode, setInitialPosition]);
-
-  // Initial load and resize handling
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const clamped = clampToViewport(parsed.x, parsed.y);
-        setPosition(clamped);
-        latestPos.current = clamped;
-      } catch (e) {
-        setInitialPosition();
-      }
-    } else {
-      setInitialPosition();
-    }
-
+    setInitialPosition();
     const handleResize = () => {
-      // Only auto-recenter if the user hasn't saved a custom position
-      if (!localStorage.getItem(STORAGE_KEY)) {
-        setInitialPosition();
-      } else {
-        // If they have a saved position, still clamp it to ensure it's on screen
-        try {
-          const savedPos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-          if (savedPos.x !== undefined) {
-            const clamped = clampToViewport(savedPos.x, savedPos.y);
+      setInitialPosition();
+      if (window.innerWidth >= 768) {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const clamped = clampToViewport(parsed.x, parsed.y);
             setPosition(clamped);
             latestPos.current = clamped;
-          }
-        } catch (e) {
-           setInitialPosition();
+          } catch (e) {}
         }
       }
     };
@@ -102,6 +85,7 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
   }, [clampToViewport, setInitialPosition]);
 
   const onDragStart = (clientX: number, clientY: number) => {
+    if (isMobile || !isVisible) return; 
     setIsDragging(true);
     dragStartOffset.current = {
       x: clientX - position.x,
@@ -111,7 +95,7 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
 
   useEffect(() => {
     const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging) return;
+      if (!isDragging || isMobile) return;
       
       const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
@@ -146,63 +130,82 @@ export const GestureInfoPanel: React.FC<GestureInfoPanelProps> = ({ mode, gestur
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);
     };
-  }, [isDragging, clampToViewport]);
+  }, [isDragging, clampToViewport, isMobile]);
+
+  const handleModeItemClick = (targetMode: AppMode) => {
+      // Allowed manual mode change even when webcam is on
+      if (onManualModeChange && isVisible) {
+          onManualModeChange(targetMode);
+      }
+  };
+
+  // Always enable cursor pointer and hover effects for interactivity
+  const clickableClass = 'cursor-pointer hover:bg-white/10 active:scale-95';
+
+  const mobileContainerStyle: React.CSSProperties = isMobile ? {
+    left: '50%',
+    bottom: '16px',
+    transform: 'translateX(-50%)',
+    width: 'calc(100% - 60px)',
+    maxWidth: '260px'
+  } : {
+    left: `${position.x}px`, 
+    top: `${position.y}px`,
+    visibility: (position.x === -2000 ? 'hidden' : 'visible') as 'hidden' | 'visible'
+  };
 
   return (
     <div 
       ref={panelRef}
-      style={{ 
-        left: `${position.x}px`, 
-        top: `${position.y}px`,
-        visibility: position.x === -2000 ? 'hidden' : 'visible'
-      }}
-      className={`fixed z-[40] pointer-events-auto transition-opacity duration-300 select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] rounded-lg group ${isDragging ? 'opacity-90 scale-[1.01]' : 'opacity-100'}`}
+      style={mobileContainerStyle}
+      className={`fixed z-[48] transition-all duration-700 select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] rounded-sm group ${isDragging ? 'opacity-90 scale-[1.01]' : ''} ${isMobile ? 'scale-100' : ''} ${isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
     >
-      <div className="bg-black/70 backdrop-blur-2xl border border-[#FFD700]/30 rounded-lg p-1.5 md:p-3.5 min-w-[260px] md:min-w-[420px] lg:min-w-[460px]">
-        {/* Drag Handle - Compact */}
+      <div className={`bg-black/85 backdrop-blur-3xl border border-[#FFD700]/30 rounded-sm p-2 md:p-2.5 ${!isMobile ? 'min-w-[320px] lg:min-w-[350px]' : ''}`}>
+        {/* Header - Compact */}
         <div 
           onMouseDown={(e) => onDragStart(e.clientX, e.clientY)}
           onTouchStart={(e) => onDragStart(e.touches[0].clientX, e.touches[0].clientY)}
-          className="flex items-center justify-between mb-1 md:mb-2 cursor-grab active:cursor-grabbing hover:bg-white/5 p-1 rounded transition-colors"
+          className={`flex items-center justify-between mb-1.5 ${isMobile ? 'cursor-default' : 'cursor-grab active:cursor-grabbing hover:bg-white/5'} px-1 py-0.5 rounded transition-colors`}
         >
-          <div className="flex items-center gap-1.5 md:gap-2">
-             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-50 md:w-3 md:h-3">
-                <circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/>
-             </svg>
-             <h3 className="text-[#FFD700] font-cinzel text-[8px] md:text-[10px] tracking-[0.2em] font-bold uppercase drop-shadow-[0_0_5px_rgba(255,215,0,0.2)]">Gesture Guide</h3>
+          <div className="flex items-center gap-1.5">
+             <div className="w-1 h-1 rounded-full bg-[#FFD700] shadow-[0_0_6px_#FFD700]"></div>
+             <h3 className="text-[#FFD700] font-cinzel text-[8px] md:text-[9px] tracking-[0.2em] font-bold uppercase">GESTURE GUIDE</h3>
           </div>
-          <span className="font-mono text-[5px] md:text-[7px] text-[#FFD700]/20 uppercase tracking-widest">Moveable</span>
+          <span className="font-mono text-[6px] text-[#FFD700]/30 uppercase tracking-[0.1em]">
+              {isWebcamOff ? 'MANUAL' : 'HYBRID'}
+          </span>
         </div>
 
-        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#FFD700]/30 to-transparent mb-1.5 md:mb-2.5"></div>
+        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#FFD700]/20 to-transparent mb-2"></div>
 
-        {/* Compact grid with labels */}
-        <div className="grid grid-cols-2 gap-x-3 md:gap-x-8 gap-y-0.3 md:gap-y-0.5">
-           <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.TREE ? 'brightness-125' : 'opacity-50'}`}>
-              <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">✊</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Fist: Tree Assembled</span>
-           </div>
-           <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.SCATTER ? 'brightness-125' : 'opacity-50'}`}>
-              <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">✋</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Open: Tree Exploded</span>
-           </div>
-           <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.FOCUS ? 'brightness-125' : 'opacity-50'}`}>
-              <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">🤏</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Pinch: Picture Focused</span>
-           </div>
-           <div className={`flex items-center gap-1.5 md:gap-4 transition-all duration-500 ${mode === AppMode.NEW_YEAR ? 'brightness-125' : 'opacity-50'}`}>
-              <span className="text-sm md:text-2xl drop-shadow-[0_0_6px_rgba(255,215,0,0.3)]">✌</span>
-              <span className="font-playfair text-[#FFD700] text-[8px] md:text-[11px] tracking-tight whitespace-nowrap">Yeah: Merry Christmas</span>
-           </div>
+        {/* Mode Grid - Scaled Down */}
+        <div className={`grid ${isMobile ? 'grid-cols-2 gap-1.5' : 'grid-cols-2 gap-x-4 gap-y-1'}`}>
+           {[
+             { mode: AppMode.TREE, icon: '✊', label: 'Fist: Assemble' },
+             { mode: AppMode.SCATTER, icon: '✋', label: 'Palm: Explode' },
+             { mode: AppMode.FOCUS, icon: '🤏', label: 'Pinch: Memory' },
+             { mode: AppMode.NEW_YEAR, icon: '✌', label: 'Yeah: Message' }
+           ].map((item) => (
+             <div 
+                key={item.mode}
+                onClick={() => handleModeItemClick(item.mode)}
+                className={`flex items-center gap-2 transition-all duration-300 p-1 md:p-1.5 rounded-sm border ${mode === item.mode ? 'bg-[#FFD700]/15 border-[#FFD700]/40 brightness-110' : 'bg-white/5 border-transparent opacity-50'} ${clickableClass}`}
+             >
+                <span className={`${isMobile ? 'text-sm' : 'text-lg'} drop-shadow-[0_0_5px_rgba(255,215,0,0.3)]`}>{item.icon}</span>
+                <span className={`font-cinzel text-[#FFD700] ${isMobile ? 'text-[8px]' : 'text-[9px]'} tracking-wider whitespace-nowrap uppercase font-bold`}>{item.label}</span>
+             </div>
+           ))}
         </div>
         
-        {/* Footer */}
-        <div className="mt-1.5 md:mt-3 pt-1.5 md:pt-2 border-t border-[#FFD700]/10 flex justify-between items-center">
-           <span className="font-mono text-[6px] md:text-[8px] text-[#FFD700]/40 uppercase tracking-widest truncate max-w-[80px] md:max-w-[100px]">MOD: {gestureState.gesture}</span>
-           <div className="flex items-center gap-1">
-              <span className="text-[5px] md:text-[7px] font-cinzel text-[#FFD700]/20 tracking-[0.1em]">{gestureState.isDetected ? 'LINKED' : 'WAITING'}</span>
-              <div className={`w-1 h-1 md:w-2 md:h-2 rounded-full ${gestureState.isDetected ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-red-500/30'}`}></div>
+        {/* Status Bar - Minimal */}
+        <div className="mt-2 pt-1.5 border-t border-[#FFD700]/10 flex justify-between items-center">
+           <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[7px] text-[#FFD700]/40 uppercase tracking-widest">STATE:</span>
+              <span className="font-mono text-[7px] text-white/90 uppercase tracking-widest bg-[#FFD700]/5 px-1.5 rounded-full border border-[#FFD700]/10">
+                {isWebcamOff ? 'USER' : (gestureState.gesture === 'NONE' ? 'SEARCH' : gestureState.gesture)}
+              </span>
            </div>
+           <div className={`w-1 h-1 rounded-full ${!isWebcamOff && gestureState.isDetected ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : (isWebcamOff ? 'bg-[#FFD700]/20' : 'bg-red-500/20 animate-pulse')}`}></div>
         </div>
       </div>
     </div>
