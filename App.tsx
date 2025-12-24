@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Experience } from './components/Experience';
@@ -6,6 +7,7 @@ import { GestureInfoPanel } from './components/GestureInfoPanel';
 import { AppMode, GestureState, UploadedImage } from './types';
 const MemoExperience = React.memo(Experience);
 
+// Optimized Dropbox link format with required keys for direct streaming
 const BACKGROUND_MUSIC_SRC = "https://www.dropbox.com/scl/fi/jhv6l2q03ycvbdporwvp6/Joy-to-the-world.mp3?rlkey=6xdb3mjsx0pmowj69mqz0o7p2&st=9khilajv&raw=1";
 
 interface Track {
@@ -17,6 +19,7 @@ interface Track {
 const App: React.FC = () => {
   const nameRef = useRef("");
   const inputElRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<AppMode>(AppMode.TREE);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [gestureState, setGestureState] = useState<GestureState>({ x: 0, y: 0, handSize: 0, isDetected: false, gesture: 'NONE' });
@@ -36,9 +39,18 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   
   const [playlist, setPlaylist] = useState<Track[]>([
-    { id: 'default', name: "Joy to the world", url: BACKGROUND_MUSIC_SRC }
+    { id: 'default', name: "Joy to the World", url: BACKGROUND_MUSIC_SRC }
   ]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const resetViewport = useCallback(() => {
     if (inputElRef.current) {
@@ -68,57 +80,110 @@ const App: React.FC = () => {
     }
   }, [editingId]);
 
+  // Handle automatic photo cycling in FOCUS mode
   useEffect(() => {
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      if (mode === AppMode.NEW_YEAR) {
-        setIsPanelExpanded(false);
-      } else {
-        setIsPanelExpanded(true);
-      }
+    let interval: number;
+    if (mode === AppMode.FOCUS && images.length > 1) {
+      interval = window.setInterval(() => {
+        setFocusId(currentId => {
+          const currentIndex = images.findIndex(img => img.id === currentId);
+          // If not found or at end, start from beginning
+          if (currentIndex === -1) return images[images.length - 1].id;
+          const nextIndex = (currentIndex + 1) % images.length;
+          return images[nextIndex].id;
+        });
+      }, 4000); // Switch photo every 4 seconds
     }
-  }, [mode]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [mode, images]);
+
+  // Combined mode change effects for panel state
+  useEffect(() => {
+    // Auto-collapse logic based on mode
+    if (mode === AppMode.FOCUS || mode === AppMode.NEW_YEAR) {
+      setIsPanelExpanded(false);
+    } else if (isMobile) {
+      // Re-expand on mobile when returning to non-focus modes (TREE, SCATTER)
+      setIsPanelExpanded(true);
+    }
+  }, [mode, isMobile]);
 
   useEffect(() => {
-    const audio = new Audio(playlist[currentTrackIndex].url);
+    const audio = new Audio();
     audio.loop = false;
     audio.volume = 0.4;
     audio.preload = "auto";
-    audio.onplay = () => setIsPlaying(true);
-    audio.onpause = () => setIsPlaying(false);
-    audio.onended = () => { handleNextTrack(); };
+    
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => handleNextTrack();
+    const handleError = (e: any) => {
+      console.error("Audio Load Error:", e);
+      setIsPlaying(false);
+    };
+
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+
     audioRef.current = audio;
+
     return () => {
-        if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
-        audio.pause();
-        audio.src = "";
-        audioRef.current = null;
+      if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+      audio.pause();
+      audio.src = "";
+      audioRef.current = null;
     };
   }, []);
 
   useEffect(() => {
-    if (audioRef.current && hasStarted) {
-      const wasPlaying = !audioRef.current.paused;
-      audioRef.current.src = playlist[currentTrackIndex].url;
-      if (wasPlaying || hasStarted) {
-        audioRef.current.play().catch(console.error);
+    if (audioRef.current) {
+      const audio = audioRef.current;
+      const track = playlist[currentTrackIndex];
+      
+      if (track && track.url && audio.src !== track.url) {
+        audio.src = track.url;
+        audio.load();
+        
+        if (hasStarted) {
+          audio.play().catch(err => {
+            console.warn("Audio play blocked or failed:", err);
+          });
+        }
       }
     }
   }, [currentTrackIndex, playlist, hasStarted]);
 
   const handleNextTrack = useCallback(() => {
-    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
-  }, [playlist.length]);
+    setPlaylist(prev => {
+      setCurrentTrackIndex(curr => (curr + 1) % prev.length);
+      return prev;
+    });
+  }, []);
 
   const handlePrevTrack = useCallback(() => {
-    setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
-  }, [playlist.length]);
+    setPlaylist(prev => {
+      setCurrentTrackIndex(curr => (curr - 1 + prev.length) % prev.length);
+      return prev;
+    });
+  }, []);
 
   const startExperience = () => {
     setHasStarted(true);
     if (audioRef.current) {
+      const track = playlist[currentTrackIndex];
+      if (audioRef.current.src !== track.url) {
+        audioRef.current.src = track.url;
+      }
       audioRef.current.play().catch(error => {
-        console.warn("Audio play failed:", error);
+        console.warn("Audio play failed on start:", error);
       });
     }
   };
@@ -159,8 +224,11 @@ const App: React.FC = () => {
 
   const toggleMusic = () => {
       if (!audioRef.current) return;
-      if (isPlaying) audioRef.current.pause();
-      else audioRef.current.play();
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(err => console.error("Manual play failed:", err));
+      }
   };
 
   const lastGestureSwitchRef = useRef<number>(0);
@@ -184,13 +252,13 @@ const App: React.FC = () => {
         lastGestureSwitchRef.current = now;
       }
     } else if (state.gesture === 'PINCH') {
-       if (images.length > 0) {
-           if (mode !== AppMode.FOCUS) {
-               const randomIdx = Math.floor(Math.random() * images.length);
-               setFocusId(images[randomIdx].id);
-               setMode(AppMode.FOCUS);
-               lastGestureSwitchRef.current = now;
+       if (mode !== AppMode.FOCUS) {
+           setMode(AppMode.FOCUS);
+           if (images.length > 0) {
+               // Always focus the most recently uploaded image initially
+               setFocusId(images[images.length - 1].id);
            }
+           lastGestureSwitchRef.current = now;
        }
     } else if (state.gesture === 'YEAH') {
         if (mode !== AppMode.NEW_YEAR) {
@@ -200,6 +268,22 @@ const App: React.FC = () => {
         }
     }
   }, [editingId, images, mode]);
+
+  const handleManualModeChange = useCallback((newMode: AppMode) => {
+    if (editingId) return;
+    if (newMode === AppMode.FOCUS) {
+        setMode(AppMode.FOCUS);
+        if (images.length > 0) {
+            // Always focus the most recently uploaded image initially
+            setFocusId(images[images.length - 1].id);
+        } else {
+            setFocusId(null);
+        }
+    } else {
+        setMode(newMode);
+        setFocusId(null);
+    }
+  }, [editingId, images]);
 
   const generateTreePosition = (): [number, number, number] => {
     const height = 14; 
@@ -215,6 +299,30 @@ const App: React.FC = () => {
     return [x, finalY, z];
   };
 
+  const calculateDefaultDialogPos = useCallback(() => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const isMobileLocal = w < 768;
+    const isTabletLocal = w >= 768 && w < 1024;
+    const dialogW = isMobileLocal ? 250 : 280;
+    
+    // Y offsets pulled closer to the photo bottom.
+    // Adjusted tablet to 125 to match its smaller scale and offset.
+    let yOffsetFromCenter = 0;
+    if (isMobileLocal) {
+        yOffsetFromCenter = 90; 
+    } else if (isTabletLocal) {
+        yOffsetFromCenter = 125;
+    } else {
+        yOffsetFromCenter = 205;
+    }
+
+    return {
+      x: (w / 2) - (dialogW / 2),
+      y: (h / 2) + yOffsetFromCenter
+    };
+  }, []);
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
@@ -227,18 +335,9 @@ const App: React.FC = () => {
         name: ''
       };
       setImages(prev => [...prev, newImage]);
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const dialogW = w < 768 ? 250 : 280;
-      const dialogH = w < 768 ? 140 : 160;
-      setDialogPos({
-        x: (w / 2) - (dialogW / 2),
-        y: h - dialogH - (w < 768 ? 60 : 120)
-      });
+      setDialogPos(calculateDefaultDialogPos());
       setEditingId(newId);
       nameRef.current = "";
-      setMode(AppMode.TREE);
-      setFocusId(null);
       event.target.value = '';
     }
   };
@@ -253,6 +352,8 @@ const App: React.FC = () => {
     );
     setEditingId(null);
     nameRef.current = "";
+    setMode(AppMode.TREE);
+    setFocusId(null);
     resetViewport();
   };
 
@@ -305,19 +406,29 @@ const App: React.FC = () => {
     };
   }, [isDraggingDialog]);
 
-  // Derived state to handle stacking priority for FOCUS mode on mobile
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  useEffect(() => {
+    if (!editingId) return;
+    const handleResize = () => {
+      setDialogPos(calculateDefaultDialogPos());
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [editingId, calculateDefaultDialogPos]);
+
   const showPhotoOnTop = isMobile && mode === AppMode.FOCUS;
+  const showNoPhotoPrompt = mode === AppMode.FOCUS && images.length === 0 && !editingId;
+  const showAddMoreButton = mode === AppMode.FOCUS && images.length > 0 && !editingId;
+  
+  // Specific requirement: mobile in SCATTER (Palm) mode reduces system panel opacity
+  const isScatterOnMobile = isMobile && mode === AppMode.SCATTER;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       
       {!hasStarted && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black overflow-hidden">
-          {/* Enhanced Background Layers */}
           <div className="absolute inset-0 bg-[#020804]"></div>
           
-          {/* Scattered Fine Gold Dust (金粉 - Smaller Particles) */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
              {[...Array(120)].map((_, i) => {
                 const size = Math.random() * 1.4 + 0.4;
@@ -346,10 +457,7 @@ const App: React.FC = () => {
              })}
           </div>
 
-          {/* Background Starfield */}
           <div className="absolute inset-0 bg-[radial-gradient(0.5px_0.5px_at_20px_30px,#eee,transparent),radial-gradient(0.5px_0.5px_at_40px_70px,#fff,transparent),radial-gradient(1px_1px_at_50px_160px,#ddd,transparent),radial-gradient(1px_1px_at_90px_40px,#fff,transparent),radial-gradient(0.5px_0.5px_at_130px_80px,#fff,transparent),radial-gradient(1px_1px_at_160px_120px,#ddd,transparent)] bg-[length:200px_200px] opacity-10"></div>
-          
-          {/* Center Glow */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,215,0,0.12)_0%,transparent_60%)]"></div>
 
           <div className="relative z-10 flex flex-col items-center gap-8 md:gap-12 p-8 max-w-lg text-center">
@@ -394,7 +502,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Experience Container - Elevates to z-30 on mobile FOCUS to be "in front" of system panel */}
       <div className={`absolute inset-0 transition-opacity duration-1500 ${hasStarted ? 'opacity-100' : 'opacity-0'} ${showPhotoOnTop ? 'z-30' : 'z-0'}`}>
         <MemoExperience 
           mode={mode} 
@@ -404,6 +511,48 @@ const App: React.FC = () => {
           focusId={focusId}
           hasInput={false}
         />
+      </div>
+
+      {/* No Photos Prompt */}
+      <div className={`fixed inset-0 z-[45] flex items-center justify-center pointer-events-none transition-all duration-500 ${showNoPhotoPrompt ? 'opacity-100' : 'opacity-0 scale-95'}`}>
+          <div className="bg-black/80 backdrop-blur-2xl border border-[#FFD700]/30 p-4 md:p-5 rounded-sm shadow-[0_0_25px_rgba(255,215,0,0.1)] text-center max-w-[80vw] w-[240px] md:w-[260px] pointer-events-auto relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-b from-[#FFD700]/5 to-transparent"></div>
+              <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3">
+                  <div className="w-8 h-8 md:w-9 md:h-9 border border-[#FFD700]/20 flex items-center justify-center rounded-full">
+                      <span className="text-base md:text-lg">📸</span>
+                  </div>
+                  <h2 className="font-cinzel text-[#FFD700] text-sm md:text-base tracking-[0.1em] font-bold">NO MEMORIES</h2>
+                  <p className="font-playfair text-[#FFD700]/60 text-[9px] md:text-[10px] italic tracking-wide leading-tight">
+                      Please add a memory to begin.
+                  </p>
+                  <div className="h-[1px] w-12 bg-gradient-to-r from-transparent via-[#FFD700]/30 to-transparent"></div>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative group px-4 py-2 md:px-6 md:py-2.5 border border-[#FFD700] bg-black hover:bg-[#FFD700]/10 transition-all duration-300 rounded-sm overflow-hidden"
+                  >
+                      <div className="absolute inset-0 bg-[#FFD700]/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                      <span className="relative font-cinzel text-[#FFD700] text-[7px] md:text-[8px] tracking-[0.2em] font-bold">ADD MEMORIES</span>
+                  </button>
+              </div>
+          </div>
+      </div>
+
+      {/* Add More Memories Button in Focus Mode - Positioned below the centered photo and styled smaller */}
+      <div className={`fixed left-1/2 bottom-[165px] md:bottom-[210px] -translate-x-1/2 z-[50] pointer-events-none transition-all duration-500 ${showAddMoreButton ? 'opacity-100 scale-100' : 'opacity-0 scale-90 translate-y-4'}`}>
+          <button 
+            onClick={() => {
+              if (window.innerWidth < 768) {
+                setMode(AppMode.TREE);
+                setFocusId(null);
+              }
+              fileInputRef.current?.click();
+            }}
+            className="pointer-events-auto group relative px-6 py-2 md:px-8 md:py-3 border-[1px] border-[#FFD700] bg-black/80 backdrop-blur-xl hover:bg-[#FFD700]/15 transition-all duration-300 rounded-full shadow-[0_0_20px_rgba(255,215,0,0.15)] active:scale-95"
+          >
+              <div className="flex items-center gap-2">
+                  <span className="font-cinzel text-[#FFD700] text-[7px] md:text-[9px] tracking-[0.2em] font-black whitespace-nowrap uppercase">ADD MORE MEMORIES</span>
+              </div>
+          </button>
       </div>
 
       {editingId && (
@@ -421,7 +570,7 @@ const App: React.FC = () => {
           <button onClick={handleCloseDialog} className="absolute top-1.5 right-1.5 md:top-2 md:right-2 text-[#FFD700]/30 hover:text-[#FFD700] transition-colors duration-300 z-20 p-1">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:w-3.5 md:h-3.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <div className="pt-1"><h3 className="font-playfair text-[#FFD700] text-[10px] md:text-sm text-center tracking-wide drop-shadow-sm select-none">Memorialize this moment</h3></div>
+          <div className="pt-1"><h3 className="font-playfair text-[#FFD700] text-[10px] md:text-sm text-center tracking-wide drop-shadow-sm select-none uppercase tracking-widest font-bold">Memorialize this moment</h3></div>
           <div className="relative group px-1">
               <input 
                 ref={inputElRef}
@@ -434,11 +583,20 @@ const App: React.FC = () => {
               />
           </div>
           <div className="flex justify-between items-center mt-0.5 md:mt-1 px-1">
-            <button onClick={handleCloseDialog} className="text-[#FFD700]/40 hover:text-[#FFD700] font-cinzel text-[7px] md:text-[8px] tracking-widest transition-colors uppercase">Cancel</button>
+            <button onClick={handleCloseDialog} className="text-[#FFD700]/40 hover:text-[#FFD700] font-cinzel text-[7px] md:text-[8px] tracking-widest transition-colors uppercase font-bold">Cancel</button>
             <button onClick={handleNameSubmit} className="bg-[#FFD700] text-[#050f0a] font-cinzel font-bold text-[7px] md:text-[8px] px-3 py-1.5 md:px-5 md:py-2 rounded-sm hover:brightness-110 hover:shadow-[0_0_10px_rgba(255,215,0,0.3)] transition-all tracking-widest border border-white/10">SUBMIT</button>
           </div>
         </div>
       )}
+
+      {/* GestureInfoPanel visibility */}
+      <GestureInfoPanel 
+        mode={mode} 
+        gestureState={gestureState} 
+        onManualModeChange={handleManualModeChange} 
+        isWebcamOff={!webcamEnabled} 
+        isVisible={!editingId && hasStarted}
+      />
 
       <div className={`absolute inset-0 z-10 pointer-events-none p-4 md:p-8 transition-opacity duration-1000 ${editingId || !hasStarted ? 'opacity-0' : 'opacity-100'}`}>
         <div className="absolute top-2 left-2 md:top-8 md:left-8 flex flex-col items-start pointer-events-auto origin-top-left scale-75 md:scale-90 lg:scale-100">
@@ -446,8 +604,8 @@ const App: React.FC = () => {
           <div className="h-[2px] w-24 md:w-48 bg-gradient-to-r from-[#FFD700] to-transparent mt-3 md:mt-4"></div>
         </div>
 
-        {/* System Panel Container - Opacity reduces to 20% on mobile when in FOCUS mode. Stays at z-20. */}
-        <div className={`absolute top-2 right-2 md:top-6 md:right-6 lg:top-8 lg:right-8 z-20 pointer-events-auto w-[130px] md:w-[220px] lg:w-[280px] origin-top-right scale-90 md:scale-100 transition-opacity duration-500 ${mode === AppMode.FOCUS ? 'opacity-20 md:opacity-100' : 'opacity-100'}`}>
+        {/* System Panel Container: Updated with z-[60] and conditional opacity */}
+        <div className={`absolute top-2 right-2 md:top-6 md:right-6 lg:top-8 lg:right-8 z-[60] pointer-events-auto w-[130px] md:w-[220px] lg:w-[280px] origin-top-right scale-90 md:scale-100 transition-opacity duration-500 ${isScatterOnMobile ? 'opacity-40' : 'opacity-100'}`}>
             <div className="bg-black/80 backdrop-blur-xl border border-[#FFD700]/40 p-1.5 md:p-4 lg:p-6 flex flex-col shadow-[0_0_40px_rgba(255,215,0,0.15)] rounded-sm transition-all duration-500 overflow-hidden">
                 <div onClick={() => setIsPanelExpanded(!isPanelExpanded)} className="flex items-center justify-between cursor-pointer group hover:opacity-80 transition-all w-full">
                   <h2 className="text-[#FFD700] font-cinzel text-[10px] md:text-sm lg:text-lg tracking-widest drop-shadow-[0_0_5px_rgba(255,215,0,0.5)] uppercase font-bold text-left">SYSTEM PANEL</h2>
@@ -457,7 +615,7 @@ const App: React.FC = () => {
                 <div className={`transition-all duration-700 ease-in-out overflow-hidden flex flex-col gap-1.5 md:gap-4 lg:gap-6 ${isPanelExpanded ? 'max-h-[1500px] opacity-100 mt-2 md:mt-5 lg:mt-8' : 'max-h-0 opacity-0'}`}>
                   <label className="cursor-pointer group relative w-full flex items-center justify-center py-1.5 md:py-3 lg:py-5 border border-[#FFD700] bg-black/40 hover:bg-[#FFD700]/10 transition-all duration-300 shadow-[0_0_15px_rgba(255,215,0,0.1)] rounded-sm">
                        <span className="font-cinzel text-[#FFD700] tracking-[0.2em] font-bold text-[8px] md:text-[10px] lg:text-sm group-hover:text-white transition-colors duration-300">ADD MEMORIES</span>
-                       <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={!!editingId} />
+                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={!!editingId} />
                   </label>
 
                   <div className="border border-[#FFD700]/20 bg-black/20 p-1.5 md:p-3 lg:p-5 relative flex flex-col gap-1 md:gap-3 rounded-sm">
@@ -467,7 +625,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="overflow-hidden whitespace-nowrap bg-white/5 px-2 py-1 md:py-1.5 rounded-[1px]">
                           <p className="text-[#FFD700]/40 font-cinzel text-[6px] md:text-[7px] lg:text-[8px] uppercase tracking-widest mb-0.5 md:mb-1">Track {currentTrackIndex + 1} / {playlist.length}</p>
-                          <p className="text-[#FFD700]/90 font-playfair text-[8px] md:text-[10px] lg:text-[12px] italic truncate">{playlist[currentTrackIndex].name}</p>
+                          <p className="text-[#FFD700]/90 font-playfair text-[8px] md:text-[10px] lg:text-sm italic truncate">{playlist[currentTrackIndex].name}</p>
                       </div>
                       <div className="flex gap-1.5 md:gap-2 items-center">
                           <button onClick={handlePrevTrack} className="flex-1 flex items-center justify-center py-1.5 md:py-2 border border-[#FFD700]/20 bg-white/5 hover:bg-white/10 transition-all group rounded-[1px]"><svg xmlns="http://www.w3.org/2000/svg" className="w-2 h-2 md:w-3.5 md:h-3.5 text-[#FFD700]/60 group-hover:text-[#FFD700]" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
@@ -490,7 +648,6 @@ const App: React.FC = () => {
                                  className={`absolute left-0.5 top-1/2 -translate-y-1/2 rounded-full bg-[#FFD700] transition-transform duration-300 w-3 h-3 md:w-4 md:h-4 lg:w-4.5 lg:h-4.5 
                                  ${webcamEnabled ? 'translate-x-2 md:translate-x-4 lg:translate-x-5 shadow-[0_0_10px_#FFD700]' : 'translate-x-0'}`}
                               />
-    
                            </div>
                            <span className="font-cinzel font-bold text-[#FFD700] text-[8px] md:text-[10px] lg:text-sm whitespace-nowrap uppercase">OPEN WEBCAM</span>
                       </div>
@@ -499,8 +656,6 @@ const App: React.FC = () => {
                 </div>
             </div>
         </div>
-        {/* Gesture Guide stays at the top layer z-40 */}
-        <GestureInfoPanel mode={mode} gestureState={gestureState} />
       </div>
     </div>
   );
