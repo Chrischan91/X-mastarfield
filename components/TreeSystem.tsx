@@ -129,7 +129,7 @@ const HeroStar = ({ mode }: { mode: AppMode }) => {
         let baseScale = 0.75;
         if (mode === AppMode.SCATTER) baseScale = 0.95; 
         if (mode === AppMode.FOCUS) baseScale = 1.15; 
-        if (mode === AppMode.NEW_YEAR) baseScale = 0.75; // Stayed smaller as requested earlier
+        if (mode === AppMode.NEW_YEAR) baseScale = 0.75; 
         
         const isSteady = mode === AppMode.FOCUS;
         const twinkle = isSteady ? 1.0 : (1.0 + Math.sin(time * 2.5) * 0.08); 
@@ -191,7 +191,6 @@ const FoliageMaterialConfig = {
       vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
       gl_Position = projectionMatrix * mvPosition;
       
-      // Kept scale factor modest for the text to avoid bloat
       float scaleFactor = mix(1.0, 1.25, uNewYear); 
       gl_PointSize = aSize * scaleFactor * (450.0 / -mvPosition.z);
       vAlpha = 1.0;
@@ -207,14 +206,9 @@ const FoliageMaterialConfig = {
       float dist = length(center);
       if (dist > 0.5) discard;
       float edgeGlow = smoothstep(0.1, 0.5, dist);
-      
-      // Further reduced glow component for text mode to lower overall brightness
       vec3 seasonalGlow = mix(uColorGlow, vec3(0.8, 0.7, 0.5), vIsNewYear * 0.3);
-      
-      // More aggressive brightness reduction for the text formation (0.6 instead of 0.8)
       float brightnessAdj = mix(1.0, 0.6, vIsNewYear);
       vec3 color = mix(uColorBase, seasonalGlow, edgeGlow * (0.3 + 0.4 * vIsNewYear)) * brightnessAdj;
-      
       gl_FragColor = vec4(color, 1.0);
     }
   `
@@ -251,7 +245,6 @@ const SpiralMaterialConfig = {
       vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
       gl_Position = projectionMatrix * mvPosition;
       
-      // Softened size boost slightly for more delicate appearance
       float boost = mix(0.8, 0.55, uNewYear); 
       gl_PointSize = aSize * boost * (460.0 / -mvPosition.z) * (1.1 + sin(uTime * 2.5 + aPhase) * 0.5);
       vAlpha = 0.8 + 0.2 * sin(uTime * 1.5 + aPhase);
@@ -267,9 +260,6 @@ const SpiralMaterialConfig = {
       float dist = length(center);
       if (dist > 0.5) discard;
       float glow = 1.0 - smoothstep(0.0, 0.5, dist);
-      
-      // Slightly reduced intensity (brightness) for a softer golden glow per request
-      // Ensuring it stays below bloom threshold primarily so physical objects stand out
       float intensity = mix(0.95, 0.75, vIsNewYear);
       gl_FragColor = vec4(uColor * intensity, glow * vAlpha * (intensity * 0.8));
     }
@@ -338,9 +328,7 @@ const GoldenSpirals = React.memo(({ mode }: { mode: AppMode }) => {
     const coreCount = 10000;
     const extraCount = 3000;
     const count = coreCount + extraCount;
-    
     const { pos, chaos, sizes, phases } = useMemo(() => generateSpiralData(count), [count]);
-    // Reduced zThickness (0.2) to make spirals sit flatter on the letters
     const nyPos = useMemo(() => generateNewYearPoints(count, 18, coreCount, 0.2), [count, coreCount]);
 
     useFrame((state) => {
@@ -431,11 +419,23 @@ interface TreeSystemProps {
 }
 
 export const TreeSystem: React.FC<TreeSystemProps> = ({ mode, images, editingId, hasInput, focusId }) => {
+  // Solo-view Logic: Filter the images list based on context.
+  // In Focus (PINCH) or Editing mode, only show the relevant single photo.
+  const filteredImages = useMemo(() => {
+    if (editingId) {
+      return images.filter(img => img.id === editingId);
+    }
+    if (mode === AppMode.FOCUS && focusId) {
+      return images.filter(img => img.id === focusId);
+    }
+    return images;
+  }, [images, editingId, mode, focusId]);
+
   return (
     <group>
       <HeroStar mode={mode} />
       <StaticTree mode={mode} hasInput={hasInput} />
-      {images && images.map((img, idx) => (
+      {filteredImages.map((img, idx) => (
         <PolaroidPhoto 
           key={img.id} 
           image={img} 
@@ -504,12 +504,9 @@ const PolaroidPhoto = React.memo(({ image, idx, mode, isEditing, isFocused, disp
         const c = h.clone().normalize().multiplyScalar(15 + Math.random() * 15);
         c.y += (Math.random() - 0.5) * 10;
         const rot = new THREE.Euler((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.2);
-        
-        // Photos are anchored slightly behind the surface for a depth effect
         const rawPoints = generateNewYearPoints(100, 18, Infinity, 0.1);
         const pIdx = Math.floor(Math.random() * 100);
         const ny = new THREE.Vector3(rawPoints[pIdx * 3], rawPoints[pIdx * 3 + 1], -0.2);
-        
         return { homePos: h, chaosPos: c, initialRotation: rot, nyPos: ny };
     }, [image.position]); 
 
@@ -528,15 +525,23 @@ const PolaroidPhoto = React.memo(({ image, idx, mode, isEditing, isFocused, disp
 
         if (isEditing) {
             const dist = 10; 
-            const vec = new THREE.Vector3(0, isMobile ? 0.8 : 0.4, -dist);
+            
+            // Boosted vertical offset: Move photo significantly higher to stay clear of naming frame/keyboard/buttons
+            let yOffset = 1.2; // Desktop
+            if (isMobile) yOffset = 2.2; // Increased from 0.7 to 2.2 to shift it way up
+            else if (isTablet) yOffset = 2.5; // Increased from 0.9 to 2.5
+            
+            const vec = new THREE.Vector3(0, yOffset, -dist);
             vec.applyQuaternion(state.camera.quaternion);
             vec.add(state.camera.position);
+            
             if (groupRef.current?.parent) {
                 groupRef.current.parent.updateWorldMatrix(true, false);
                 targetPos.copy(vec);
                 groupRef.current.parent.worldToLocal(targetPos);
             } else { targetPos.copy(vec); }
-            targetScale = isMobile ? 1.2 : 1.1; 
+            
+            targetScale = isMobile ? 2.0 : isTablet ? 1.6 : 2.8; 
             lookAtCamera = true;
         } else if (mode === AppMode.FOCUS && isFocused) {
             const dist = 12; 
@@ -545,10 +550,17 @@ const PolaroidPhoto = React.memo(({ image, idx, mode, isEditing, isFocused, disp
             const visibleWidth = visibleHeight * cam.aspect;
             
             let wf = 0.42, hf = 0.42; 
-            if (isMobile) { wf = 0.62; hf = 0.55; } else if (isTablet) { wf = 0.48; hf = 0.45; }
+            let yCenterOffset = 0;
+            if (isMobile) { 
+                wf = 0.62; hf = 0.55; 
+                yCenterOffset = 1.5; // Shift photo up 1.5 units in focus mode on mobile
+            } else if (isTablet) { 
+                wf = 0.40; hf = 0.38; 
+                yCenterOffset = 1.8; // Shift photo up 1.8 units on tablet
+            }
             
             targetScale = Math.min((visibleWidth * wf) / 1.02, (visibleHeight * hf) / 1.24);
-            const vec = new THREE.Vector3(0, 0, -dist).applyQuaternion(state.camera.quaternion).add(state.camera.position);
+            const vec = new THREE.Vector3(0, yCenterOffset, -dist).applyQuaternion(state.camera.quaternion).add(state.camera.position);
             if (groupRef.current?.parent) {
                 groupRef.current.parent.updateWorldMatrix(true, false);
                 targetPos.copy(vec);
@@ -591,7 +603,6 @@ const PolaroidPhoto = React.memo(({ image, idx, mode, isEditing, isFocused, disp
 
     return (
         <group ref={groupRef} renderOrder={50}>
-            {/* Main White Frame - Increased emissive for higher brightness */}
             <mesh position={[0, 0, 0]}>
                 <boxGeometry args={[1, 1.22, 0.05]} />
                 <meshStandardMaterial 
@@ -599,18 +610,22 @@ const PolaroidPhoto = React.memo(({ image, idx, mode, isEditing, isFocused, disp
                     metalness={0.1} 
                     roughness={0.4} 
                     emissive="#FFFFFF" 
-                    emissiveIntensity={0.45} 
+                    emissiveIntensity={isFocused ? 0.2 : 0.45} 
                 />
             </mesh>
             <group position={[0, 0.125, 0.03]}>
-               <DreiImage url={url} scale={[0.9, 0.9]} toneMapped={false} />
+               <DreiImage 
+                 url={url} 
+                 scale={[0.9, 0.9]} 
+                 toneMapped={false} 
+                 color={isFocused ? "#999999" : "#ffffff"} 
+               />
                <mesh position={[0,0,0.01]}>
                   <planeGeometry args={[0.9, 0.9]} />
                   <meshPhysicalMaterial transparent opacity={0.15} roughness={0.0} metalness={0.1} clearcoat={1} />
                </mesh>
             </group>
             {displayText && <PolaroidText text={displayText} />}
-            {/* Gold Border - Added emissive to make it shine and pop */}
             <mesh position={[0, 0, -0.01]}>
                 <boxGeometry args={[1.02, 1.24, 0.04]} />
                 <meshStandardMaterial 
@@ -618,7 +633,7 @@ const PolaroidPhoto = React.memo(({ image, idx, mode, isEditing, isFocused, disp
                     metalness={1} 
                     roughness={0.2} 
                     emissive="#FFD700" 
-                    emissiveIntensity={0.35}
+                    emissiveIntensity={isFocused ? 0.15 : 0.35}
                 />
             </mesh>
         </group>
